@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/Sirupsen/logrus"
+	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
 	gh "github.com/kudrykv/services-deploy-monitor/app/service/github"
 	"time"
@@ -23,17 +24,19 @@ func NewCiMonitor(ci CircleCi) CiMonitor {
 }
 
 func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
+	fields := logrus.Fields{
+		"request_id": httputil.GetRequestId(ctx),
+		"action":     wh.Action,
+		"state":      wh.PullRequest.State,
+		"link":       wh.PullRequest.HTMLURL,
+	}
+
 	if *wh.Action != "closed" || *wh.PullRequest.State != "closed" || *wh.PullRequest.Merged != true {
-		logging.WithFields(logrus.Fields{
-			"action":   wh.Action,
-			"number":   wh.PullRequest.Number,
-			"state":    wh.PullRequest.State,
-			"html_url": wh.PullRequest.HTMLURL,
-		}).Info("skip pr")
+		logging.WithFields(fields).Info("skip pr")
 		return
 	}
 
-	logging.WithFields(logrus.Fields{}).Info("start")
+	logging.WithFields(fields).Info("start timer")
 	ticker := time.NewTicker(10 * time.Second)
 	skips := 0
 
@@ -52,32 +55,28 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 		)
 
 		if err != nil {
-			logging.WithFields(logrus.Fields{"err": err}).Error("fetch build from ci")
+			logging.WithFields(fields).WithFields(logrus.Fields{"err": err}).Error("fetch build from ci")
 			ticker.Stop()
 			return
 		}
 
 		if skips > 6 {
-			logrus.WithFields(logrus.Fields{
-				"skips": skips,
-			}).Error("did not find build in multiple consecutive attempts")
+			logrus.WithFields(fields).
+				WithFields(logrus.Fields{"skips": skips}).
+				Error("did not find build in multiple consecutive attempts")
 			ticker.Stop()
 			return
 		}
 
 		if len(builds) == 0 {
-			logging.WithFields(logrus.Fields{
-				"skips": skips,
-			}).Warn("did not find build")
+			logging.WithFields(fields).WithFields(logrus.Fields{"skips": skips}).Warn("did not find build")
 			skips += 1
 			continue
 		}
 
 		for _, build := range builds {
 			if build.Status == "canceled" || build.Status == "failed" {
-				logging.WithFields(logrus.Fields{
-					"link": build.BuildURL,
-				}).Info("build failed in circleci")
+				logging.WithFields(fields).Info("build failed in circleci")
 				ticker.Stop()
 				return
 			}
@@ -88,25 +87,25 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 			isGreen := build.Status == "success" || build.Status == "fixed"
 			allGreen = allGreen && isGreen
 			if !isGreen {
-				logrus.WithFields(logrus.Fields{
+				logrus.WithFields(fields).WithFields(logrus.Fields{
 					"link":   build.BuildURL,
 					"status": build.Status,
-				}).Info("non-green build")
+				}).Info("pending build or something")
 			}
 		}
 
 		if allGreensRestarts > allGreensWaitTimes {
-			logging.WithFields(logrus.Fields{
-				"restarts": allGreensRestarts,
-			}).Warn("died waiting for green result")
+			logging.WithFields(fields).
+				WithFields(logrus.Fields{"restarts": allGreensRestarts}).
+				Warn("died waiting for green result")
 			ticker.Stop()
 			return
 		}
 
 		if !allGreen {
-			logging.WithFields(logrus.Fields{
-				"restarts": allGreensRestarts,
-			}).Info("some builds not green, restart")
+			logging.WithFields(fields).
+				WithFields(logrus.Fields{"restarts": allGreensRestarts}).
+				Info("some builds not green, restart")
 			allGreensRestarts += 1
 			greens = false
 			continue
@@ -114,10 +113,10 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 
 		if !greens {
 			greens = allGreen
-			logging.WithFields(logrus.Fields{}).Info("all greens. restart once to make sure")
+			logging.WithFields(fields).Info("all greens. restart once to make sure")
 		} else {
 			// successfully checked that all builds are green
-			logging.WithFields(logrus.Fields{}).Info("build is green")
+			logging.WithFields(fields).Info("build is green")
 			ticker.Stop()
 			return
 		}
