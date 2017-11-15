@@ -44,7 +44,13 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 	for {
 		<-ticker.C
 
-		builds, err := s.ci.BuildsForProjectMatching(*wh.Repository.Name, *wh.PullRequest.Base.Ref, *wh.PullRequest.Base.SHA)
+		builds, err := s.ci.BuildsForProjectMatching(
+			*wh.Repository.Owner.Login,
+			*wh.Repository.Name,
+			*wh.PullRequest.Base.Ref,
+			*wh.PullRequest.Base.SHA,
+		)
+
 		if err != nil {
 			logging.WithFields(logrus.Fields{"err": err}).Error("fetch build from ci")
 			ticker.Stop()

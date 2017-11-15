@@ -44,5 +44,6 @@ func (h githubWebhook) HandlePullRequest(w http.ResponseWriter, r *http.Request)
 
 	httputil.Json(r.Context(), w, http.StatusOK, "OK")
 
-	go h.cm.Monitor(context.Background(), *wh)
+	ctx := httputil.AddCustomRequestId(context.Background(), httputil.GetRequestId(r.Context()))
+	go h.cm.Monitor(ctx, *wh)
 }

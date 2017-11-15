@@ -8,17 +8,15 @@ import (
 )
 
 type CircleCi interface {
-	BuildsForProjectMatching(repo, branch, sha string) ([]circleci.Build, error)
+	BuildsForProjectMatching(org, repo, branch, sha string) ([]circleci.Build, error)
 }
 
 type circleCi struct {
-	account string
-	client  *circleci.Client
+	client *circleci.Client
 }
 
-func NewCircleCi(token, account string) CircleCi {
+func NewCircleCi(token string) CircleCi {
 	return &circleCi{
-		account: account,
 		client: &circleci.Client{
 			Token: token,
 			HTTPClient: &http.Client{
@@ -40,8 +38,8 @@ func NewCircleCi(token, account string) CircleCi {
 	}
 }
 
-func (s *circleCi) BuildsForProjectMatching(repo, branch, sha string) ([]circleci.Build, error) {
-	builds, err := s.client.ListRecentBuildsForProject(s.account, repo, branch, "", 30, 0)
+func (s *circleCi) BuildsForProjectMatching(org, repo, branch, sha string) ([]circleci.Build, error) {
+	builds, err := s.client.ListRecentBuildsForProject(org, repo, branch, "", 30, 0)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,6 @@
 {
-	"comment": "",
 	"ImportPath": "github.com/kudrykv/services-deploy-monitor",
+	"comment": "",
 	"heroku": {
 		"install": [
 			"./app"
@@ -55,6 +55,12 @@
 			"path": "github.com/jszwedko/go-circleci",
 			"revision": "5e2eacecfeef811ef52223a210adcef2277b6376",
 			"revisionTime": "2017-11-11T23:50:34Z"
+		},
+		{
+			"checksumSHA1": "72rkm/ADR2se/J0EHWMQm2d1jxc=",
+			"path": "github.com/rs/xid",
+			"revision": "02dd45c33376f85d1064355dc790dcc4850596b1",
+			"revisionTime": "2017-06-04T22:45:45Z"
 		},
 		{
 			"checksumSHA1": "OvrNwcBO+xO4FZ7eMbazho1C3t0=",
