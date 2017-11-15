@@ -23,8 +23,9 @@ func NewCiMonitor(ci CircleCi) CiMonitor {
 }
 
 func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
-	if *wh.PullRequest.State != "closed" || *wh.PullRequest.Merged != true {
+	if *wh.Action != "closed" || *wh.PullRequest.State != "closed" || *wh.PullRequest.Merged != true {
 		logging.WithFields(logrus.Fields{
+			"action":   wh.Action,
 			"number":   wh.PullRequest.Number,
 			"state":    wh.PullRequest.State,
 			"html_url": wh.PullRequest.HTMLURL,
