@@ -1,5 +1,6 @@
 {
 	"comment": "",
+	"ImportPath": "github.com/kudrykv/services-deploy-monitor",
 	"heroku": {
 		"install": [
 			"./app"
