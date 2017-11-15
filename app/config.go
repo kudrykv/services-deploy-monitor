@@ -1,8 +1,13 @@
 package main
 
 type Config struct {
+	Server   Server
 	Github   Github
 	CircleCi CircleCi
+}
+
+type Server struct {
+	Port string `env:"PORT" envDefault:"8080"`
 }
 
 type Github struct {

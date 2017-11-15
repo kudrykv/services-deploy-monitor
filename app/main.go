@@ -11,6 +11,7 @@ import (
 
 func main() {
 	cfg := Config{}
+	env.Parse(&cfg.Server)
 	env.Parse(&cfg.Github)
 	env.Parse(&cfg.CircleCi)
 
@@ -27,5 +28,5 @@ func main() {
 	mux.HandleFunc(pat.Get("/changelog/:repo"), changelogHandler.Build)
 	mux.HandleFunc(pat.Post("/webhook/github"), githubWebhookHandler.HandlePullRequest)
 
-	http.ListenAndServe(":8080", mux)
+	http.ListenAndServe(":"+cfg.Server.Port, mux)
 }
