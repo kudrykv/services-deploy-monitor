@@ -60,7 +60,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 			return
 		}
 
-		org = *hook.CreateEvent.Repo.Owner.Name
+		org = *hook.CreateEvent.Repo.Owner.Login
 		repo = *hook.CreateEvent.Repo.Name
 		branchRef = *hook.CreateEvent.Ref
 		shaOrTag = branchRef

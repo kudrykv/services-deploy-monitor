@@ -25,7 +25,7 @@ func NewGithubWebhook(gs service.Github, cm service.CiMonitor) GithubWebhook {
 
 func (h githubWebhook) HandlePullRequest(w http.ResponseWriter, r *http.Request) {
 	event := r.Header.Get("X-GitHub-Event")
-	if event != "pull_request" && event != "release" {
+	if !h.gs.IsEventSupported(event) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("unsupported event"))
 		return
