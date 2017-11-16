@@ -57,6 +57,12 @@
 			"revisionTime": "2017-11-11T23:50:34Z"
 		},
 		{
+			"checksumSHA1": "xqQGjobyj72ds5aMHL4zg0MkSzM=",
+			"path": "github.com/kudrykv/go-circleci",
+			"revision": "fd576dcbbcefbf6936a781da5862abecd1be9bcd",
+			"revisionTime": "2017-11-16T01:53:23Z"
+		},
+		{
 			"checksumSHA1": "72rkm/ADR2se/J0EHWMQm2d1jxc=",
 			"path": "github.com/rs/xid",
 			"revision": "02dd45c33376f85d1064355dc790dcc4850596b1",
