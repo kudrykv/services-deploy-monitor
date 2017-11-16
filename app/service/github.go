@@ -21,6 +21,7 @@ type Github interface {
 	ListReleaseBranches(ctx context.Context, repo string) ([]github2.Branch, error)
 	Compare(ctx context.Context, repo, base, head string) (*github2.CommitsComparison, error)
 	Commits(ctx context.Context, repo, base string, pages, perPage int) ([]*github2.RepositoryCommit, error)
+	Commit(ctx context.Context, org, repo, sha string) (*github2.RepositoryCommit, error)
 	IsEventSupported(event string) bool
 	ParseWebhook(ctx context.Context, event string, body []byte) (*gh.AggregatedWebhook, error)
 }
@@ -167,6 +168,16 @@ func (s *github) Commits(ctx context.Context, repo, base string, pages, perPage 
 	}
 
 	return rcAll, nil
+}
+
+func (s *github) Commit(ctx context.Context, org, repo, sha string) (*github2.RepositoryCommit, error) {
+	if len(org) == 1 {
+		org = s.org
+	}
+
+	rc, _, err := s.client.Repositories.GetCommit(ctx, org, repo, sha)
+
+	return rc, err
 }
 
 func (s *github) IsEventSupported(event string) bool {

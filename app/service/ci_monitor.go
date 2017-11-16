@@ -15,11 +15,13 @@ type CiMonitor interface {
 
 type ciMonitor struct {
 	ci CircleCi
+	gh Github
 }
 
-func NewCiMonitor(ci CircleCi) CiMonitor {
+func NewCiMonitor(gh Github, ci CircleCi) CiMonitor {
 	return &ciMonitor{
 		ci: ci,
+		gh: gh,
 	}
 }
 
@@ -61,10 +63,17 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		}
 
 		org = *hook.CreateEvent.Repo.Owner.Login
-		repo = *hook.CreateEvent.Repo.Name
 		branchRef = *hook.CreateEvent.Ref
-		shaOrTag = branchRef
+		repo = *hook.CreateEvent.Repo.Name
 		base = *hook.CreateEvent.MasterBranch
+
+		rc, err := s.gh.Commit(ctx, org, repo, branchRef)
+		if err != nil {
+			logging.WithFields(fields).WithFields(logrus.Fields{"err": err}).Error("error fetching commit info")
+			return
+		}
+
+		shaOrTag = *rc.SHA
 
 	default:
 		logging.WithFields(fields).Error("unknown event: " + hook.Event)

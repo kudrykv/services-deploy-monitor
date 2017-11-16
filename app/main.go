@@ -19,7 +19,7 @@ func main() {
 	githubService := service.NewGithub(cfg.Github.Key, cfg.Github.Org)
 	changelogService := service.NewChangelog(githubService)
 	circleCiService := service.NewCircleCi(cfg.CircleCi.Key)
-	ciMonitorService := service.NewCiMonitor(circleCiService)
+	ciMonitorService := service.NewCiMonitor(githubService, circleCiService)
 
 	changelogHandler := handler.NewChangelog(changelogService)
 	githubWebhookHandler := handler.NewGithubWebhook(githubService, ciMonitorService)
