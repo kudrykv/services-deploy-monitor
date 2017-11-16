@@ -10,7 +10,7 @@ import (
 )
 
 type CiMonitor interface {
-	Monitor(ctx context.Context, wh gh.PullRequestWebhook)
+	Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(map[string]string))
 }
 
 type ciMonitor struct {
@@ -23,21 +23,64 @@ func NewCiMonitor(ci CircleCi) CiMonitor {
 	}
 }
 
-func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
+func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(map[string]string)) {
 	fields := logrus.Fields{
 		"request_id": httputil.GetRequestId(ctx),
-		"action":     wh.Action,
-		"state":      wh.PullRequest.State,
-		"link":       wh.PullRequest.HTMLURL,
+		"event":      hook.Event,
 	}
 
-	if *wh.Action != "closed" || *wh.PullRequest.State != "closed" || *wh.PullRequest.Merged != true {
-		logging.WithFields(fields).Info("skip pr")
+	var org string
+	var repo string
+	var branchRef string
+	var shaOrTag string
+	var base string
+
+	switch hook.Event {
+	case gh.PullRequestEvent:
+		if *hook.PullRequestEvent.Action != "closed" || *hook.PullRequestEvent.PullRequest.Merged != true {
+			logging.WithFields(fields).Info("skip pr")
+			return
+		}
+
+		org = *hook.PullRequestEvent.Repo.Owner.Login
+		repo = *hook.PullRequestEvent.Repo.Name
+		branchRef = *hook.PullRequestEvent.PullRequest.Base.Ref
+		shaOrTag = *hook.PullRequestEvent.PullRequest.MergeCommitSHA
+		base = *hook.PullRequestEvent.PullRequest.Base.Ref
+
+	case gh.ReleaseEvent:
+		org = *hook.ReleaseEvent.Repo.Owner.Login
+		repo = *hook.ReleaseEvent.Repo.Name
+		branchRef = *hook.ReleaseEvent.Release.TargetCommitish
+		shaOrTag = *hook.ReleaseEvent.Release.TagName
+
+	case gh.CreateEvent:
+		if *hook.CreateEvent.RefType != "branch" {
+			logging.WithFields(fields).Info("skip " + *hook.CreateEvent.RefType)
+			return
+		}
+
+		org = *hook.CreateEvent.Repo.Owner.Name
+		repo = *hook.CreateEvent.Repo.Name
+		branchRef = *hook.CreateEvent.Ref
+		shaOrTag = branchRef
+		base = *hook.CreateEvent.MasterBranch
+
+	default:
+		logging.WithFields(fields).Error("unknown event: " + hook.Event)
 		return
 	}
 
+	//notification := map[string]string{
+	//	"event": event,
+	//	"repo":  repo,
+	//	"sha":   shaOrTag,
+	//	"base":  base,
+	//}
+
 	logging.WithFields(fields).Info("start timer")
 	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 	skips := 0
 
 	greens := false
@@ -47,24 +90,22 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 	for {
 		<-ticker.C
 
-		builds, err := s.ci.BuildsForProjectMatching(
-			*wh.Repository.Owner.Login,
-			*wh.Repository.Name,
-			*wh.PullRequest.Base.Ref,
-			*wh.PullRequest.Base.SHA,
-		)
+		filterBranch := branchRef
+		if hook.Event == gh.ReleaseEvent {
+			filterBranch = ""
+		}
+
+		builds, err := s.ci.BuildsForProjectMatching(org, repo, filterBranch, shaOrTag)
 
 		if err != nil {
 			logging.WithFields(fields).WithFields(logrus.Fields{"err": err}).Error("fetch build from ci")
-			ticker.Stop()
 			return
 		}
 
 		if skips > 6 {
-			logrus.WithFields(fields).
+			logging.WithFields(fields).
 				WithFields(logrus.Fields{"skips": skips}).
 				Error("did not find build in multiple consecutive attempts")
-			ticker.Stop()
 			return
 		}
 
@@ -77,7 +118,6 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 		for _, build := range builds {
 			if build.Status == "canceled" || build.Status == "failed" {
 				logging.WithFields(fields).Info("build failed in circleci")
-				ticker.Stop()
 				return
 			}
 		}
@@ -98,7 +138,6 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 			logging.WithFields(fields).
 				WithFields(logrus.Fields{"restarts": allGreensRestarts}).
 				Warn("died waiting for green result")
-			ticker.Stop()
 			return
 		}
 
@@ -117,7 +156,14 @@ func (s *ciMonitor) Monitor(ctx context.Context, wh gh.PullRequestWebhook) {
 		} else {
 			// successfully checked that all builds are green
 			logging.WithFields(fields).Info("build is green")
-			ticker.Stop()
+			f(map[string]string{
+				"source": "ci",
+				"event":  hook.Event,
+				"built":  "success",
+				"repo":   repo,
+				"sha":    shaOrTag,
+				"base":   base,
+			})
 			return
 		}
 	}

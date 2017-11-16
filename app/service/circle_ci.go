@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/jszwedko/go-circleci"
+	"github.com/kudrykv/go-circleci"
 	"net"
 	"net/http"
 	"time"
@@ -38,7 +38,7 @@ func NewCircleCi(token string) CircleCi {
 	}
 }
 
-func (s *circleCi) BuildsForProjectMatching(org, repo, branch, sha string) ([]circleci.Build, error) {
+func (s *circleCi) BuildsForProjectMatching(org, repo, branch, shaOrTag string) ([]circleci.Build, error) {
 	builds, err := s.client.ListRecentBuildsForProject(org, repo, branch, "", 30, 0)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (s *circleCi) BuildsForProjectMatching(org, repo, branch, sha string) ([]ci
 
 	var ret []circleci.Build
 	for idx, build := range builds {
-		if build.VcsRevision == sha {
+		if build.VcsRevision == shaOrTag || build.VcsTag == shaOrTag {
 			ret = append(ret, *builds[idx])
 		}
 	}

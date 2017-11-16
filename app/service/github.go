@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	github2 "github.com/google/go-github/github"
 	gh "github.com/kudrykv/services-deploy-monitor/app/service/github"
 	"golang.org/x/oauth2"
@@ -20,7 +21,7 @@ type Github interface {
 	ListReleaseBranches(ctx context.Context, repo string) ([]github2.Branch, error)
 	Compare(ctx context.Context, repo, base, head string) (*github2.CommitsComparison, error)
 	Commits(ctx context.Context, repo, base string, pages, perPage int) ([]*github2.RepositoryCommit, error)
-	ParsePullRequestWebhook(ctx context.Context, body []byte) (*gh.PullRequestWebhook, error)
+	ParseWebhook(ctx context.Context, event string, body []byte) (*gh.AggregatedWebhook, error)
 }
 
 type github struct {
@@ -167,8 +168,25 @@ func (s *github) Commits(ctx context.Context, repo, base string, pages, perPage 
 	return rcAll, nil
 }
 
-func (s *github) ParsePullRequestWebhook(ctx context.Context, body []byte) (*gh.PullRequestWebhook, error) {
-	webhook := &gh.PullRequestWebhook{}
-	err := json.Unmarshal(body, webhook)
-	return webhook, err
+func (s *github) ParseWebhook(ctx context.Context, event string, body []byte) (*gh.AggregatedWebhook, error) {
+	hook := gh.AggregatedWebhook{
+		Event: event,
+	}
+	var err error
+
+	switch event {
+	case gh.PullRequestEvent:
+		err = json.Unmarshal(body, &hook.PullRequestEvent)
+
+	case gh.ReleaseEvent:
+		err = json.Unmarshal(body, &hook.ReleaseEvent)
+
+	case gh.CreateEvent:
+		err = json.Unmarshal(body, &hook.CreateEvent)
+
+	default:
+		err = errors.New("unrecognized event: " + event)
+	}
+
+	return &hook, err
 }
