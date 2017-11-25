@@ -81,10 +81,11 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 	}
 
 	//notification := map[string]string{
-	//	"event": event,
+	//	"org": org,
 	//	"repo":  repo,
-	//	"sha":   shaOrTag,
-	//	"base":  base,
+	//	"branch_ref": branchRef,
+	//	"sha_or_tag":  shaOrTag,
+	//	"base": base,
 	//}
 
 	logging.WithFields(fields).Info("start timer")
