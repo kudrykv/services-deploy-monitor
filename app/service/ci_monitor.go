@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/Sirupsen/logrus"
 	"github.com/imdario/mergo"
+	"github.com/kudrykv/services-deploy-monitor/app/config"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
 	gh "github.com/kudrykv/services-deploy-monitor/app/service/github"
@@ -20,12 +21,14 @@ type CiMonitor interface {
 }
 
 type ciMonitor struct {
+	cm config.Monitor
 	ci CircleCi
 	gh Github
 }
 
-func NewCiMonitor(gh Github, ci CircleCi) CiMonitor {
+func NewCiMonitor(cm config.Monitor, gh Github, ci CircleCi) CiMonitor {
 	return &ciMonitor{
+		cm: cm,
 		ci: ci,
 		gh: gh,
 	}
@@ -101,13 +104,13 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 	}, notification, f)
 
 	logging.WithFields(fields).Info("start timer")
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(time.Duration(s.cm.PollTimeIntervalS) * time.Second)
 	defer ticker.Stop()
 	skips := 0
 
 	greens := false
 	allGreensRestarts := 0
-	allGreensWaitTimes := 20
+	allGreensWaitTimes := s.cm.PollForGreenBuildsTimes
 
 	for {
 		<-ticker.C
@@ -129,7 +132,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 			return
 		}
 
-		if skips > 6 {
+		if skips > s.cm.PollForBuildsTimes {
 			logging.WithFields(fields).
 				WithFields(logrus.Fields{"skips": skips}).
 				Error("did not find build in multiple consecutive attempts")
