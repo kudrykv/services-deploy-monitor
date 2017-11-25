@@ -3,10 +3,16 @@ package service
 import (
 	"context"
 	"github.com/Sirupsen/logrus"
+	"github.com/imdario/mergo"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
 	gh "github.com/kudrykv/services-deploy-monitor/app/service/github"
 	"time"
+)
+
+const (
+	sourceGithub   = "github"
+	sourceCircleCi = "circleci"
 )
 
 type CiMonitor interface {
@@ -80,13 +86,19 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		return
 	}
 
-	//notification := map[string]string{
-	//	"org": org,
-	//	"repo":  repo,
-	//	"branch_ref": branchRef,
-	//	"sha_or_tag":  shaOrTag,
-	//	"base": base,
-	//}
+	notification := map[string]string{
+		"org":        org,
+		"repo":       repo,
+		"branch_ref": branchRef,
+		"sha_or_tag": shaOrTag,
+		"base":       base,
+	}
+	fields["notification_blueprint"] = notification
+
+	mergeAndSend(ctx, map[string]string{
+		"event":  hook.Event,
+		"source": sourceGithub,
+	}, notification, f)
 
 	logging.WithFields(fields).Info("start timer")
 	ticker := time.NewTicker(10 * time.Second)
@@ -109,6 +121,11 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 
 		if err != nil {
 			logging.WithFields(fields).WithFields(logrus.Fields{"err": err}).Error("fetch build from ci")
+			mergeAndSend(ctx, map[string]string{
+				"event":  hook.Event,
+				"source": sourceCircleCi,
+				"built":  "fetch_failed",
+			}, notification, f)
 			return
 		}
 
@@ -116,6 +133,12 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 			logging.WithFields(fields).
 				WithFields(logrus.Fields{"skips": skips}).
 				Error("did not find build in multiple consecutive attempts")
+
+			mergeAndSend(ctx, map[string]string{
+				"event":  hook.Event,
+				"source": sourceCircleCi,
+				"built":  "search_failed",
+			}, notification, f)
 			return
 		}
 
@@ -128,6 +151,11 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		for _, build := range builds {
 			if build.Status == "canceled" || build.Status == "failed" {
 				logging.WithFields(fields).Info("build failed in circleci")
+				mergeAndSend(ctx, map[string]string{
+					"event":  hook.Event,
+					"source": sourceCircleCi,
+					"built":  "build_failed",
+				}, notification, f)
 				return
 			}
 		}
@@ -148,6 +176,12 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 			logging.WithFields(fields).
 				WithFields(logrus.Fields{"restarts": allGreensRestarts}).
 				Warn("died waiting for green result")
+
+			mergeAndSend(ctx, map[string]string{
+				"event":  hook.Event,
+				"source": sourceCircleCi,
+				"built":  "wait_failed",
+			}, notification, f)
 			return
 		}
 
@@ -166,15 +200,29 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		} else {
 			// successfully checked that all builds are green
 			logging.WithFields(fields).Info("build is green")
-			f(map[string]string{
-				"source": "ci",
+			mergeAndSend(ctx, map[string]string{
 				"event":  hook.Event,
+				"source": sourceCircleCi,
 				"built":  "success",
-				"repo":   repo,
-				"sha":    shaOrTag,
-				"base":   base,
-			})
+			}, notification, f)
 			return
 		}
 	}
+}
+
+func mergeAndSend(ctx context.Context, dest map[string]string, source map[string]string, f func(map[string]string)) {
+	fields := logrus.Fields{
+		"request_id": httputil.GetRequestId(ctx),
+	}
+
+	if err := mergo.Merge(&dest, source); err != nil {
+		logging.WithFields(fields).WithFields(logrus.Fields{
+			"dest": dest,
+			"src":  source,
+		}).Error("failed to merge, dropping message")
+		return
+	}
+
+	logging.WithFields(fields).WithFields(logrus.Fields{"notification": dest}).Info("passing message to notification system")
+	f(dest)
 }

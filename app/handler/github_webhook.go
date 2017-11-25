@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"github.com/Sirupsen/logrus"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
+	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
 	"github.com/kudrykv/services-deploy-monitor/app/service"
 	"net/http"
 )
@@ -48,6 +50,6 @@ func (h githubWebhook) HandlePullRequest(w http.ResponseWriter, r *http.Request)
 
 	ctx := httputil.AddCustomRequestId(context.Background(), httputil.GetRequestId(r.Context()))
 	go h.cm.Monitor(ctx, *hook, func(strings map[string]string) {
-
+		logging.WithFields(logrus.Fields{"recv": strings}).Info("received notification")
 	})
 }

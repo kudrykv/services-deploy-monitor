@@ -51,6 +51,12 @@
 			"revisionTime": "2017-01-11T10:11:55Z"
 		},
 		{
+			"checksumSHA1": "sa7M5FIxT3ejq2KqMB2kGxHQ9s4=",
+			"path": "github.com/imdario/mergo",
+			"revision": "7fe0c75c13abdee74b09fcacef5ea1c6bba6a874",
+			"revisionTime": "2017-10-09T18:34:08Z"
+		},
+		{
 			"checksumSHA1": "95XmlIKjR5+r8KylBg91R0bf98Y=",
 			"path": "github.com/jszwedko/go-circleci",
 			"revision": "5e2eacecfeef811ef52223a210adcef2277b6376",
