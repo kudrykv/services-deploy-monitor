@@ -8,6 +8,7 @@ import (
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
 	gh "github.com/kudrykv/services-deploy-monitor/app/service/github"
+	"strconv"
 	"time"
 )
 
@@ -45,6 +46,9 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 	var branchRef string
 	var shaOrTag string
 	var base string
+	var refType string
+	var prTitle string
+	var prNumber string
 
 	switch hook.Event {
 	case gh.PullRequestEvent:
@@ -58,6 +62,8 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		branchRef = *hook.PullRequestEvent.PullRequest.Base.Ref
 		shaOrTag = *hook.PullRequestEvent.PullRequest.MergeCommitSHA
 		base = *hook.PullRequestEvent.PullRequest.Base.Ref
+		prTitle = *hook.PullRequestEvent.PullRequest.Title
+		prNumber = strconv.Itoa(*hook.PullRequestEvent.PullRequest.Number)
 
 	case gh.ReleaseEvent:
 		org = *hook.ReleaseEvent.Repo.Owner.Login
@@ -66,7 +72,8 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		shaOrTag = *hook.ReleaseEvent.Release.TagName
 
 	case gh.CreateEvent:
-		if *hook.CreateEvent.RefType != "branch" {
+		refType = *hook.CreateEvent.RefType
+		if refType != "branch" {
 			logging.WithFields(fields).Info("skip " + *hook.CreateEvent.RefType)
 			return
 		}
@@ -95,11 +102,15 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 		"branch_ref": branchRef,
 		"sha_or_tag": shaOrTag,
 		"base":       base,
+		"ref_type":   refType,
+		"pr_title":   prTitle,
+		"pr_number":  prNumber,
 	}
 	fields["notification_blueprint"] = notification
 
 	mergeAndSend(ctx, map[string]string{
 		"event":  hook.Event,
+		"action": "merged",
 		"source": sourceGithub,
 	}, notification, f)
 
