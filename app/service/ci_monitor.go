@@ -18,7 +18,7 @@ const (
 )
 
 type CiMonitor interface {
-	Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(map[string]string))
+	Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(context.Context, map[string]string))
 }
 
 type ciMonitor struct {
@@ -35,7 +35,7 @@ func NewCiMonitor(cm config.Monitor, gh Github, ci CircleCi) CiMonitor {
 	}
 }
 
-func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(map[string]string)) {
+func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(context.Context, map[string]string)) {
 	fields := logrus.Fields{
 		"request_id": httputil.GetRequestId(ctx),
 		"event":      hook.Event,
@@ -224,7 +224,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 	}
 }
 
-func mergeAndSend(ctx context.Context, dest map[string]string, source map[string]string, f func(map[string]string)) {
+func mergeAndSend(ctx context.Context, dest map[string]string, source map[string]string, f func(context.Context, map[string]string)) {
 	fields := logrus.Fields{
 		"request_id": httputil.GetRequestId(ctx),
 	}
@@ -238,5 +238,5 @@ func mergeAndSend(ctx context.Context, dest map[string]string, source map[string
 	}
 
 	logging.WithFields(fields).WithFields(logrus.Fields{"notification": dest}).Info("passing message to notification system")
-	f(dest)
+	f(ctx, dest)
 }

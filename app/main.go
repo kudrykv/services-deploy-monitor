@@ -6,9 +6,11 @@ import (
 	"github.com/kudrykv/services-deploy-monitor/app/handler"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/service"
+	"github.com/kudrykv/services-deploy-monitor/app/service/notifier"
 	"goji.io"
 	"goji.io/pat"
 	"net/http"
+	"regexp"
 )
 
 func main() {
@@ -22,9 +24,17 @@ func main() {
 	changelogService := service.NewChangelog(githubService)
 	circleCiService := service.NewCircleCi(cfg.CircleCi.Key)
 	ciMonitorService := service.NewCiMonitor(cfg.Monitor, githubService, circleCiService)
+	notifierService := notifier.New(notifier.Config{
+		SuperAnnoy: notifier.SuperAnnoy{
+			Default: notifier.RepoConfig{
+				MatchBranch: regexp.MustCompile("^(master|release-\\d+W\\d+-\\d+)$"),
+				MatchTag:    regexp.MustCompile("^release-\\d+W\\d+-\\d+\\.\\d+$"),
+			},
+		},
+	})
 
 	changelogHandler := handler.NewChangelog(changelogService)
-	githubWebhookHandler := handler.NewGithubWebhook(githubService, ciMonitorService)
+	githubWebhookHandler := handler.NewGithubWebhook(githubService, ciMonitorService, notifierService)
 
 	mux := goji.NewMux()
 	mux.Use(trackDecorator)
