@@ -19,7 +19,7 @@ type CircleCi interface {
 	BuildsForProjectMatching(org, repo, branch, sha string) ([]circleci.Build, error)
 }
 
-type Gh interface {
+type GhWrap interface {
 	Org() string
 	ListReleaseTags(ctx context.Context, repo string) ([]github2.RepositoryTag, error)
 	ListReleaseBranches(ctx context.Context, repo string) ([]github2.Branch, error)

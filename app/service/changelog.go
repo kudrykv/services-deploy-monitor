@@ -7,10 +7,10 @@ import (
 )
 
 type changelog struct {
-	github Gh
+	github GhWrap
 }
 
-func NewChangelog(g Gh) Changelog {
+func NewChangelog(g GhWrap) Changelog {
 	return &changelog{
 		github: g,
 	}

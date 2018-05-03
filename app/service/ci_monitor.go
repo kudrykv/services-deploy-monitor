@@ -20,10 +20,10 @@ const (
 type ciMonitor struct {
 	cm config.Monitor
 	ci CircleCi
-	gh Gh
+	gh GhWrap
 }
 
-func NewCiMonitor(cm config.Monitor, gh Gh, ci CircleCi) CiMonitor {
+func NewCiMonitor(cm config.Monitor, gh GhWrap, ci CircleCi) CiMonitor {
 	return &ciMonitor{
 		cm: cm,
 		ci: ci,
