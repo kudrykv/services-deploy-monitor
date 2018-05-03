@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-type CircleCi interface {
-	BuildsForProjectMatching(org, repo, branch, sha string) ([]circleci.Build, error)
-}
-
 type circleCi struct {
 	client *circleci.Client
 }

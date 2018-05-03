@@ -6,10 +6,6 @@ import (
 	"strings"
 )
 
-type Changelog interface {
-	Build(ctx context.Context, repo string, pages int) (string, error)
-}
-
 type changelog struct {
 	github Github
 }

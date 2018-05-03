@@ -17,10 +17,6 @@ const (
 	sourceCircleCi = "circleci"
 )
 
-type CiMonitor interface {
-	Monitor(ctx context.Context, hook gh.AggregatedWebhook, f func(context.Context, map[string]string))
-}
-
 type ciMonitor struct {
 	cm config.Monitor
 	ci CircleCi

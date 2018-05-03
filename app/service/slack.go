@@ -10,9 +10,6 @@ import (
 	"time"
 )
 
-type Slack interface {
-}
-
 type slack struct {
 	url    string
 	client *http.Client
