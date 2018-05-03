@@ -6,7 +6,6 @@ import (
 	"github.com/kudrykv/services-deploy-monitor/app/handler"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/service"
-	"github.com/kudrykv/services-deploy-monitor/app/service/notifier"
 	"goji.io"
 	"goji.io/pat"
 	"net/http"
@@ -29,11 +28,11 @@ func main() {
 	pullRequestMergedTpl := template.New("pull_request_merged")
 	tpl, _ := pullRequestMergedTpl.Parse("*{{repo}}:* PR \"{{pr_title}} ({{pr_number}})\" merged to `{{branch}}`")
 
-	notifierService := notifier.New(notifier.Config{
-		Cvs: notifier.Cvs{
-			Branches: map[*regexp.Regexp]notifier.Systems{
+	notifierService := service.New(service.Config{
+		Cvs: service.Cvs{
+			Branches: map[*regexp.Regexp]service.Systems{
 				regexp.MustCompile("^master$"): {
-					Github: map[string]notifier.SendPack{
+					Github: map[string]service.SendPack{
 						"pull_request_merged": {
 							Message: tpl,
 						},

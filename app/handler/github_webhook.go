@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/service"
-	"github.com/kudrykv/services-deploy-monitor/app/service/notifier"
 	"net/http"
 )
 
@@ -15,10 +14,10 @@ type GithubWebhook interface {
 type githubWebhook struct {
 	gs service.GhWrap
 	cm service.CiMonitor
-	ns notifier.Notifier
+	ns service.Notifier
 }
 
-func NewGithubWebhook(gs service.GhWrap, cm service.CiMonitor, ns notifier.Notifier) GithubWebhook {
+func NewGithubWebhook(gs service.GhWrap, cm service.CiMonitor, ns service.Notifier) GithubWebhook {
 	return &githubWebhook{
 		gs: gs,
 		cm: cm,
