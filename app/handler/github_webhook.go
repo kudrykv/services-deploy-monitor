@@ -13,12 +13,12 @@ type GithubWebhook interface {
 }
 
 type githubWebhook struct {
-	gs service.Github
+	gs service.Gh
 	cm service.CiMonitor
 	ns notifier.Notifier
 }
 
-func NewGithubWebhook(gs service.Github, cm service.CiMonitor, ns notifier.Notifier) GithubWebhook {
+func NewGithubWebhook(gs service.Gh, cm service.CiMonitor, ns notifier.Notifier) GithubWebhook {
 	return &githubWebhook{
 		gs: gs,
 		cm: cm,

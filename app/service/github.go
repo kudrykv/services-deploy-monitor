@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	github2 "github.com/google/go-github/github"
-	gh "github.com/kudrykv/services-deploy-monitor/app/service/github"
+	"github.com/kudrykv/services-deploy-monitor/app/service/github"
 	"golang.org/x/oauth2"
 	"regexp"
 	"sort"
@@ -15,13 +15,13 @@ import (
 var releaseRegexTag = regexp.MustCompile("^release-\\d+W\\d+-\\d+\\.\\d+$")
 var releaseRegexBranch = regexp.MustCompile("^release-\\d+W\\d+-\\d+$")
 
-type github struct {
+type gh struct {
 	org string
 
 	client *github2.Client
 }
 
-func NewGithub(accessToken, org string) Github {
+func NewGithub(accessToken, org string) Gh {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: accessToken,
 	})
@@ -29,13 +29,13 @@ func NewGithub(accessToken, org string) Github {
 	tc := oauth2.NewClient(context.Background(), ts)
 	client := github2.NewClient(tc)
 
-	return &github{
+	return &gh{
 		org:    org,
 		client: client,
 	}
 }
 
-func (s *github) Org() string {
+func (s *gh) Org() string {
 	return s.org
 }
 
@@ -53,7 +53,7 @@ func (s SortTag) Less(i, j int) bool {
 	return strings.Compare(*s[i].Name, *s[j].Name) > 0
 }
 
-func (s *github) ListReleaseTags(ctx context.Context, repo string) ([]github2.RepositoryTag, error) {
+func (s *gh) ListReleaseTags(ctx context.Context, repo string) ([]github2.RepositoryTag, error) {
 	allTags := []*github2.RepositoryTag{}
 	lo := &github2.ListOptions{}
 
@@ -96,7 +96,7 @@ func (s SortBranch) Less(i, j int) bool {
 	return strings.Compare(*s[i].Name, *s[j].Name) > 0
 }
 
-func (s *github) ListReleaseBranches(ctx context.Context, repo string) ([]github2.Branch, error) {
+func (s *gh) ListReleaseBranches(ctx context.Context, repo string) ([]github2.Branch, error) {
 	lo := &github2.ListOptions{}
 	branches := []github2.Branch{}
 
@@ -124,12 +124,12 @@ func (s *github) ListReleaseBranches(ctx context.Context, repo string) ([]github
 	return branches, nil
 }
 
-func (s *github) Compare(ctx context.Context, repo, base, head string) (*github2.CommitsComparison, error) {
+func (s *gh) Compare(ctx context.Context, repo, base, head string) (*github2.CommitsComparison, error) {
 	comp, _, err := s.client.Repositories.CompareCommits(ctx, s.org, repo, base, head)
 	return comp, err
 }
 
-func (s *github) Commits(ctx context.Context, repo, base string, pages, perPage int) ([]*github2.RepositoryCommit, error) {
+func (s *gh) Commits(ctx context.Context, repo, base string, pages, perPage int) ([]*github2.RepositoryCommit, error) {
 	lo := github2.ListOptions{
 		PerPage: perPage,
 	}
@@ -159,7 +159,7 @@ func (s *github) Commits(ctx context.Context, repo, base string, pages, perPage 
 	return rcAll, nil
 }
 
-func (s *github) Commit(ctx context.Context, org, repo, sha string) (*github2.RepositoryCommit, error) {
+func (s *gh) Commit(ctx context.Context, org, repo, sha string) (*github2.RepositoryCommit, error) {
 	if len(org) == 1 {
 		org = s.org
 	}
@@ -169,9 +169,9 @@ func (s *github) Commit(ctx context.Context, org, repo, sha string) (*github2.Re
 	return rc, err
 }
 
-func (s *github) IsEventSupported(event string) bool {
+func (s *gh) IsEventSupported(event string) bool {
 	switch event {
-	case gh.PullRequestEvent, gh.ReleaseEvent, gh.CreateEvent:
+	case github.PullRequestEvent, github.ReleaseEvent, github.CreateEvent:
 		return true
 
 	default:
@@ -179,20 +179,20 @@ func (s *github) IsEventSupported(event string) bool {
 	}
 }
 
-func (s *github) ParseWebhook(ctx context.Context, event string, body []byte) (*gh.AggregatedWebhook, error) {
-	hook := gh.AggregatedWebhook{
+func (s *gh) ParseWebhook(ctx context.Context, event string, body []byte) (*github.AggregatedWebhook, error) {
+	hook := github.AggregatedWebhook{
 		Event: event,
 	}
 	var err error
 
 	switch event {
-	case gh.PullRequestEvent:
+	case github.PullRequestEvent:
 		err = json.Unmarshal(body, &hook.PullRequestEvent)
 
-	case gh.ReleaseEvent:
+	case github.ReleaseEvent:
 		err = json.Unmarshal(body, &hook.ReleaseEvent)
 
-	case gh.CreateEvent:
+	case github.CreateEvent:
 		err = json.Unmarshal(body, &hook.CreateEvent)
 
 	default:
