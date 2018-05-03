@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	github2 "github.com/google/go-github/github"
-	"github.com/kudrykv/services-deploy-monitor/app/service/github"
+	"github.com/google/go-github/github"
 	"golang.org/x/oauth2"
 	"regexp"
 	"sort"
@@ -18,7 +17,7 @@ var releaseRegexBranch = regexp.MustCompile("^release-\\d+W\\d+-\\d+$")
 type ghWrap struct {
 	org string
 
-	client *github2.Client
+	client *github.Client
 }
 
 func NewGithub(accessToken, org string) GhWrap {
@@ -27,7 +26,7 @@ func NewGithub(accessToken, org string) GhWrap {
 	})
 
 	tc := oauth2.NewClient(context.Background(), ts)
-	client := github2.NewClient(tc)
+	client := github.NewClient(tc)
 
 	return &ghWrap{
 		org:    org,
@@ -39,7 +38,7 @@ func (s *ghWrap) Org() string {
 	return s.org
 }
 
-type SortTag []github2.RepositoryTag
+type SortTag []github.RepositoryTag
 
 func (s SortTag) Len() int {
 	return len(s)
@@ -53,9 +52,9 @@ func (s SortTag) Less(i, j int) bool {
 	return strings.Compare(*s[i].Name, *s[j].Name) > 0
 }
 
-func (s *ghWrap) ListReleaseTags(ctx context.Context, repo string) ([]github2.RepositoryTag, error) {
-	allTags := []*github2.RepositoryTag{}
-	lo := &github2.ListOptions{}
+func (s *ghWrap) ListReleaseTags(ctx context.Context, repo string) ([]github.RepositoryTag, error) {
+	allTags := []*github.RepositoryTag{}
+	lo := &github.ListOptions{}
 
 	for {
 		rt, r, err := s.client.Repositories.ListTags(ctx, s.org, repo, lo)
@@ -72,7 +71,7 @@ func (s *ghWrap) ListReleaseTags(ctx context.Context, repo string) ([]github2.Re
 		lo.Page = r.NextPage
 	}
 
-	tags := []github2.RepositoryTag{}
+	tags := []github.RepositoryTag{}
 	for i, tag := range allTags {
 		if releaseRegexTag.MatchString(*tag.Name) {
 			tags = append(tags, *allTags[i])
@@ -82,7 +81,7 @@ func (s *ghWrap) ListReleaseTags(ctx context.Context, repo string) ([]github2.Re
 	return tags, nil
 }
 
-type SortBranch []github2.Branch
+type SortBranch []github.Branch
 
 func (s SortBranch) Len() int {
 	return len(s)
@@ -96,9 +95,9 @@ func (s SortBranch) Less(i, j int) bool {
 	return strings.Compare(*s[i].Name, *s[j].Name) > 0
 }
 
-func (s *ghWrap) ListReleaseBranches(ctx context.Context, repo string) ([]github2.Branch, error) {
-	lo := &github2.ListOptions{}
-	branches := []github2.Branch{}
+func (s *ghWrap) ListReleaseBranches(ctx context.Context, repo string) ([]github.Branch, error) {
+	lo := &github.ListOptions{}
+	branches := []github.Branch{}
 
 	for {
 		allBranches, r, err := s.client.Repositories.ListBranches(ctx, s.org, repo, lo)
@@ -124,22 +123,22 @@ func (s *ghWrap) ListReleaseBranches(ctx context.Context, repo string) ([]github
 	return branches, nil
 }
 
-func (s *ghWrap) Compare(ctx context.Context, repo, base, head string) (*github2.CommitsComparison, error) {
+func (s *ghWrap) Compare(ctx context.Context, repo, base, head string) (*github.CommitsComparison, error) {
 	comp, _, err := s.client.Repositories.CompareCommits(ctx, s.org, repo, base, head)
 	return comp, err
 }
 
-func (s *ghWrap) Commits(ctx context.Context, repo, base string, pages, perPage int) ([]*github2.RepositoryCommit, error) {
-	lo := github2.ListOptions{
+func (s *ghWrap) Commits(ctx context.Context, repo, base string, pages, perPage int) ([]*github.RepositoryCommit, error) {
+	lo := github.ListOptions{
 		PerPage: perPage,
 	}
-	clo := &github2.CommitsListOptions{
+	clo := &github.CommitsListOptions{
 		SHA:         base,
 		ListOptions: lo,
 	}
 
 	totalNumOfCommits := pages * perPage
-	var rcAll []*github2.RepositoryCommit
+	var rcAll []*github.RepositoryCommit
 
 	for len(rcAll) < totalNumOfCommits {
 		rc, r, err := s.client.Repositories.ListCommits(ctx, s.org, repo, clo)
@@ -159,7 +158,7 @@ func (s *ghWrap) Commits(ctx context.Context, repo, base string, pages, perPage 
 	return rcAll, nil
 }
 
-func (s *ghWrap) Commit(ctx context.Context, org, repo, sha string) (*github2.RepositoryCommit, error) {
+func (s *ghWrap) Commit(ctx context.Context, org, repo, sha string) (*github.RepositoryCommit, error) {
 	if len(org) == 1 {
 		org = s.org
 	}
@@ -171,7 +170,7 @@ func (s *ghWrap) Commit(ctx context.Context, org, repo, sha string) (*github2.Re
 
 func (s *ghWrap) IsEventSupported(event string) bool {
 	switch event {
-	case github.PullRequestEvent, github.ReleaseEvent, github.CreateEvent:
+	case PullRequestEvent, ReleaseEvent, CreateEvent:
 		return true
 
 	default:
@@ -179,20 +178,20 @@ func (s *ghWrap) IsEventSupported(event string) bool {
 	}
 }
 
-func (s *ghWrap) ParseWebhook(ctx context.Context, event string, body []byte) (*github.AggregatedWebhook, error) {
-	hook := github.AggregatedWebhook{
+func (s *ghWrap) ParseWebhook(ctx context.Context, event string, body []byte) (*AggregatedWebhook, error) {
+	hook := AggregatedWebhook{
 		Event: event,
 	}
 	var err error
 
 	switch event {
-	case github.PullRequestEvent:
+	case PullRequestEvent:
 		err = json.Unmarshal(body, &hook.PullRequestEvent)
 
-	case github.ReleaseEvent:
+	case ReleaseEvent:
 		err = json.Unmarshal(body, &hook.ReleaseEvent)
 
-	case github.CreateEvent:
+	case CreateEvent:
 		err = json.Unmarshal(body, &hook.CreateEvent)
 
 	default:

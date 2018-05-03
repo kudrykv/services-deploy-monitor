@@ -1,4 +1,4 @@
-package github
+package service
 
 const (
 	PullRequestEvent = "pull_request"

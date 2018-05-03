@@ -7,7 +7,6 @@ import (
 	"github.com/kudrykv/services-deploy-monitor/app/config"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
-	"github.com/kudrykv/services-deploy-monitor/app/service/github"
 	"strconv"
 	"time"
 )
@@ -31,7 +30,7 @@ func NewCiMonitor(cm config.Monitor, gh GhWrap, ci CircleCi) CiMonitor {
 	}
 }
 
-func (s *ciMonitor) Monitor(ctx context.Context, hook github.AggregatedWebhook, f func(context.Context, map[string]string)) {
+func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(context.Context, map[string]string)) {
 	fields := logrus.Fields{
 		"request_id": httputil.GetRequestId(ctx),
 		"event":      hook.Event,
@@ -47,7 +46,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook github.AggregatedWebhook, 
 	var prNumber string
 
 	switch hook.Event {
-	case github.PullRequestEvent:
+	case PullRequestEvent:
 		if *hook.PullRequestEvent.Action != "closed" || *hook.PullRequestEvent.PullRequest.Merged != true {
 			logging.WithFields(fields).Info("skip pr")
 			return
@@ -61,13 +60,13 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook github.AggregatedWebhook, 
 		prTitle = *hook.PullRequestEvent.PullRequest.Title
 		prNumber = strconv.Itoa(*hook.PullRequestEvent.PullRequest.Number)
 
-	case github.ReleaseEvent:
+	case ReleaseEvent:
 		org = *hook.ReleaseEvent.Repo.Owner.Login
 		repo = *hook.ReleaseEvent.Repo.Name
 		branchRef = *hook.ReleaseEvent.Release.TargetCommitish
 		shaOrTag = *hook.ReleaseEvent.Release.TagName
 
-	case github.CreateEvent:
+	case CreateEvent:
 		refType = *hook.CreateEvent.RefType
 		if refType != "branch" {
 			logging.WithFields(fields).Info("skip " + *hook.CreateEvent.RefType)
@@ -122,7 +121,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook github.AggregatedWebhook, 
 		<-ticker.C
 
 		filterBranch := branchRef
-		if hook.Event == github.ReleaseEvent {
+		if hook.Event == ReleaseEvent {
 			filterBranch = ""
 		}
 
