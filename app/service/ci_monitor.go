@@ -109,8 +109,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 	fields["notification_blueprint"] = notification
 
 	mergeAndSend(ctx, map[string]string{
-		"event":  hook.Event,
-		"action": "merged",
+		"event":  hook.Event + "_merged",
 		"source": sourceGithub,
 	}, notification, f)
 
@@ -179,7 +178,7 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook gh.AggregatedWebhook, f fu
 			isGreen := build.Status == "success" || build.Status == "fixed"
 			allGreen = allGreen && isGreen
 			if !isGreen {
-				logrus.WithFields(fields).WithFields(logrus.Fields{
+				logging.WithFields(fields).WithFields(logrus.Fields{
 					"link":   build.BuildURL,
 					"status": build.Status,
 				}).Info("pending build or something")

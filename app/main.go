@@ -11,6 +11,7 @@ import (
 	"goji.io/pat"
 	"net/http"
 	"regexp"
+	"text/template"
 )
 
 func main() {
@@ -24,11 +25,20 @@ func main() {
 	changelogService := service.NewChangelog(githubService)
 	circleCiService := service.NewCircleCi(cfg.CircleCi.Key)
 	ciMonitorService := service.NewCiMonitor(cfg.Monitor, githubService, circleCiService)
+
+	pullRequestMergedTpl := template.New("pull_request_merged")
+	tpl, _ := pullRequestMergedTpl.Parse("*{{repo}}:* PR \"{{pr_title}} ({{pr_number}})\" merged to `{{branch}}`")
+
 	notifierService := notifier.New(notifier.Config{
-		SuperAnnoy: notifier.SuperAnnoy{
-			Default: notifier.RepoConfig{
-				MatchBranch: regexp.MustCompile("^(master|release-\\d+W\\d+-\\d+)$"),
-				MatchTag:    regexp.MustCompile("^release-\\d+W\\d+-\\d+\\.\\d+$"),
+		Cvs: notifier.Cvs{
+			Branches: map[*regexp.Regexp]notifier.Systems{
+				regexp.MustCompile("^master$"): {
+					Github: map[string]notifier.SendPack{
+						"pull_request_merged": {
+							Message: tpl,
+						},
+					},
+				},
 			},
 		},
 	})

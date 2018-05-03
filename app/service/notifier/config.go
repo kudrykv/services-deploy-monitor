@@ -1,37 +1,23 @@
 package notifier
 
 import (
-	"github.com/kudrykv/services-deploy-monitor/app/service"
 	"regexp"
 	"text/template"
 )
 
 type Config struct {
-	Actions    map[string]SubAction
-	Slacks     map[string]SlackConfig
-	SuperAnnoy SuperAnnoy
+	Cvs Cvs
 }
 
-type SubAction struct {
-	Packs map[string]Pack
+type Cvs struct {
+	Branches map[*regexp.Regexp]Systems
+	Tags     map[*regexp.Regexp]Systems
 }
 
-type Pack struct {
+type Systems struct {
+	Github map[string]SendPack
+}
+
+type SendPack struct {
 	Message *template.Template
-	Slack   service.Slack
-}
-
-type SlackConfig struct {
-	Client  service.Slack
-	Channel string
-}
-
-type SuperAnnoy struct {
-	Annoy   map[string]RepoConfig
-	Default RepoConfig
-}
-
-type RepoConfig struct {
-	MatchBranch *regexp.Regexp
-	MatchTag    *regexp.Regexp
 }
