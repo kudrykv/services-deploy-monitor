@@ -2,6 +2,7 @@
 	"ImportPath": "github.com/kudrykv/services-deploy-monitor",
 	"comment": "",
 	"heroku": {
+		"goVersion": "go1.10.1",
 		"install": [
 			"./app"
 		]
