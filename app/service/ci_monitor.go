@@ -44,6 +44,8 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 			Repo:      hook.PullRequestEvent.GetRepo().GetName(),
 			BranchRef: hook.PullRequestEvent.GetPullRequest().GetBase().GetRef(),
 			Sha:       hook.PullRequestEvent.GetPullRequest().GetMergeCommitSHA(),
+			PrTitle:   hook.PullRequestEvent.GetPullRequest().GetTitle(),
+			PrNumber:  hook.PullRequestEvent.GetPullRequest().GetNumber(),
 		}
 
 	case ReleaseEvent:

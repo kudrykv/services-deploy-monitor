@@ -25,7 +25,7 @@ type Event struct {
 	Tag         string
 	RefType     string
 	PrTitle     string
-	PrNumber    string
+	PrNumber    int
 	BuildStatus string
 }
 
