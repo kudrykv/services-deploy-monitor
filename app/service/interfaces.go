@@ -11,7 +11,7 @@ type Changelog interface {
 }
 
 type CiMonitor interface {
-	Monitor(ctx context.Context, hook AggregatedWebhook, f func(context.Context, map[string]string))
+	Monitor(ctx context.Context, hook AggregatedWebhook, f func(context.Context, Event))
 }
 
 type CircleCi interface {
@@ -27,6 +27,10 @@ type GhWrap interface {
 	Commit(ctx context.Context, org, repo, sha string) (*github.RepositoryCommit, error)
 	IsEventSupported(event string) bool
 	ParseWebhook(ctx context.Context, event string, body []byte) (*AggregatedWebhook, error)
+}
+
+type Notifier interface {
+	Do(context.Context, Event)
 }
 
 type Slack interface {

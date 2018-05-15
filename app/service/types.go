@@ -15,25 +15,18 @@ type AggregatedWebhook struct {
 }
 
 type Event struct {
-	Action    string
-	SubAction string
+	Event  string
+	Source string
 
-	Repo Repo
-	Pr   *Pr
-}
-
-type Repo struct {
-	Org    string
-	Name   string
-	Branch string
-	Tag    string
-	Sha    string
-}
-
-type Pr struct {
-	Base   string
-	Title  string
-	Number int
+	Org         string
+	Repo        string
+	BranchRef   string
+	Sha         string
+	Tag         string
+	RefType     string
+	PrTitle     string
+	PrNumber    string
+	BuildStatus string
 }
 
 type Config struct {

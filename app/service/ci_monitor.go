@@ -3,17 +3,10 @@ package service
 import (
 	"context"
 	"github.com/Sirupsen/logrus"
-	"github.com/imdario/mergo"
 	"github.com/kudrykv/services-deploy-monitor/app/config"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/httputil"
 	"github.com/kudrykv/services-deploy-monitor/app/internal/logging"
-	"strconv"
 	"time"
-)
-
-const (
-	sourceGithub   = "github"
-	sourceCircleCi = "circleci"
 )
 
 type ciMonitor struct {
@@ -30,20 +23,13 @@ func NewCiMonitor(cm config.Monitor, gh GhWrap, ci CircleCi) CiMonitor {
 	}
 }
 
-func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(context.Context, map[string]string)) {
+func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(context.Context, Event)) {
 	fields := logrus.Fields{
 		"request_id": httputil.GetRequestId(ctx),
 		"event":      hook.Event,
 	}
 
-	var org string
-	var repo string
-	var branchRef string
-	var shaOrTag string
-	var base string
-	var refType string
-	var prTitle string
-	var prNumber string
+	var event Event
 
 	switch hook.Event {
 	case PullRequestEvent:
@@ -52,61 +38,51 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 			return
 		}
 
-		org = *hook.PullRequestEvent.Repo.Owner.Login
-		repo = *hook.PullRequestEvent.Repo.Name
-		branchRef = *hook.PullRequestEvent.PullRequest.Base.Ref
-		shaOrTag = *hook.PullRequestEvent.PullRequest.MergeCommitSHA
-		base = *hook.PullRequestEvent.PullRequest.Base.Ref
-		prTitle = *hook.PullRequestEvent.PullRequest.Title
-		prNumber = strconv.Itoa(*hook.PullRequestEvent.PullRequest.Number)
+		event = Event{
+			Event:     hook.Event + "_merged",
+			Org:       hook.PullRequestEvent.GetRepo().GetOwner().GetLogin(),
+			Repo:      hook.PullRequestEvent.GetRepo().GetName(),
+			BranchRef: hook.PullRequestEvent.GetPullRequest().GetBase().GetRef(),
+			Sha:       hook.PullRequestEvent.GetPullRequest().GetMergeCommitSHA(),
+		}
 
 	case ReleaseEvent:
-		org = *hook.ReleaseEvent.Repo.Owner.Login
-		repo = *hook.ReleaseEvent.Repo.Name
-		branchRef = *hook.ReleaseEvent.Release.TargetCommitish
-		shaOrTag = *hook.ReleaseEvent.Release.TagName
+		event = Event{
+			Event:     hook.Event,
+			Org:       hook.ReleaseEvent.GetRepo().GetOwner().GetLogin(),
+			Repo:      hook.ReleaseEvent.GetRepo().GetName(),
+			BranchRef: hook.ReleaseEvent.GetRelease().GetTargetCommitish(),
+			Tag:       hook.ReleaseEvent.GetRelease().GetTagName(),
+		}
 
 	case CreateEvent:
-		refType = *hook.CreateEvent.RefType
-		if refType != "branch" {
+		if hook.CreateEvent.GetRefType() != "branch" {
 			logging.WithFields(fields).Info("skip " + *hook.CreateEvent.RefType)
 			return
 		}
 
-		org = *hook.CreateEvent.Repo.Owner.Login
-		branchRef = *hook.CreateEvent.Ref
-		repo = *hook.CreateEvent.Repo.Name
-		base = *hook.CreateEvent.MasterBranch
+		event = Event{
+			Event:     hook.Event,
+			Org:       hook.CreateEvent.GetRepo().GetOwner().GetLogin(),
+			Repo:      hook.CreateEvent.GetRepo().GetName(),
+			BranchRef: hook.CreateEvent.GetRef(),
+		}
 
-		rc, err := s.gh.Commit(ctx, org, repo, branchRef)
+		rc, err := s.gh.Commit(ctx, event.Org, event.Repo, event.BranchRef)
 		if err != nil {
 			logging.WithFields(fields).WithFields(logrus.Fields{"err": err}).Error("error fetching commit info")
 			return
 		}
 
-		shaOrTag = *rc.SHA
+		event.Sha = rc.GetSHA()
 
 	default:
 		logging.WithFields(fields).Error("unknown event: " + hook.Event)
 		return
 	}
 
-	notification := map[string]string{
-		"org":        org,
-		"repo":       repo,
-		"branch_ref": branchRef,
-		"sha_or_tag": shaOrTag,
-		"base":       base,
-		"ref_type":   refType,
-		"pr_title":   prTitle,
-		"pr_number":  prNumber,
-	}
-	fields["notification_blueprint"] = notification
-
-	mergeAndSend(ctx, map[string]string{
-		"event":  hook.Event + "_merged",
-		"source": sourceGithub,
-	}, notification, f)
+	event.Source = sourceGithub
+	f(ctx, event)
 
 	logging.WithFields(fields).Info("start timer")
 	ticker := time.NewTicker(time.Duration(s.cm.PollTimeIntervalS) * time.Second)
@@ -117,23 +93,26 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 	allGreensRestarts := 0
 	allGreensWaitTimes := s.cm.PollForGreenBuildsTimes
 
+	event.Source = sourceCircleCi
 	for {
 		<-ticker.C
 
-		filterBranch := branchRef
+		filterBranch := event.BranchRef
 		if hook.Event == ReleaseEvent {
 			filterBranch = ""
 		}
 
-		builds, err := s.ci.BuildsForProjectMatching(org, repo, filterBranch, shaOrTag)
+		shaOrTag := event.Sha
+		if len(shaOrTag) == 0 {
+			shaOrTag = event.Tag
+		}
+
+		builds, err := s.ci.BuildsForProjectMatching(event.Org, event.Repo, filterBranch, shaOrTag)
 
 		if err != nil {
 			logging.WithFields(fields).WithFields(logrus.Fields{"err": err}).Error("fetch build from ci")
-			mergeAndSend(ctx, map[string]string{
-				"event":  hook.Event,
-				"source": sourceCircleCi,
-				"built":  "fetch_failed",
-			}, notification, f)
+			event.BuildStatus = "fetch_failed"
+			f(ctx, event)
 			return
 		}
 
@@ -142,11 +121,8 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 				WithFields(logrus.Fields{"skips": skips}).
 				Error("did not find build in multiple consecutive attempts")
 
-			mergeAndSend(ctx, map[string]string{
-				"event":  hook.Event,
-				"source": sourceCircleCi,
-				"built":  "search_failed",
-			}, notification, f)
+			event.BuildStatus = "search_failed"
+			f(ctx, event)
 			return
 		}
 
@@ -159,11 +135,8 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 		for _, build := range builds {
 			if build.Status == "canceled" || build.Status == "failed" {
 				logging.WithFields(fields).Info("build failed in circleci")
-				mergeAndSend(ctx, map[string]string{
-					"event":  hook.Event,
-					"source": sourceCircleCi,
-					"built":  "build_failed",
-				}, notification, f)
+				event.BuildStatus = "build_failed"
+				f(ctx, event)
 				return
 			}
 		}
@@ -185,11 +158,8 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 				WithFields(logrus.Fields{"restarts": allGreensRestarts}).
 				Warn("died waiting for green result")
 
-			mergeAndSend(ctx, map[string]string{
-				"event":  hook.Event,
-				"source": sourceCircleCi,
-				"built":  "wait_failed",
-			}, notification, f)
+			event.BuildStatus = "wait_failed"
+			f(ctx, event)
 			return
 		}
 
@@ -208,29 +178,9 @@ func (s *ciMonitor) Monitor(ctx context.Context, hook AggregatedWebhook, f func(
 		} else {
 			// successfully checked that all builds are green
 			logging.WithFields(fields).Info("build is green")
-			mergeAndSend(ctx, map[string]string{
-				"event":  hook.Event,
-				"source": sourceCircleCi,
-				"built":  "success",
-			}, notification, f)
+			event.BuildStatus = "success"
+			f(ctx, event)
 			return
 		}
 	}
-}
-
-func mergeAndSend(ctx context.Context, dest map[string]string, source map[string]string, f func(context.Context, map[string]string)) {
-	fields := logrus.Fields{
-		"request_id": httputil.GetRequestId(ctx),
-	}
-
-	if err := mergo.Merge(&dest, source); err != nil {
-		logging.WithFields(fields).WithFields(logrus.Fields{
-			"dest": dest,
-			"src":  source,
-		}).Error("failed to merge, dropping message")
-		return
-	}
-
-	logging.WithFields(fields).WithFields(logrus.Fields{"notification": dest}).Info("passing message to notification system")
-	f(ctx, dest)
 }
