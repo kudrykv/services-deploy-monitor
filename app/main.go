@@ -26,7 +26,15 @@ func main() {
 	ciMonitorService := service.NewCiMonitor(cfg.Monitor, githubService, circleCiService)
 
 	pullRequestMergedTpl := template.New("pull_request_merged")
-	tpl, _ := pullRequestMergedTpl.Parse("*{{repo}}:* PR \"{{pr_title}} ({{pr_number}})\" merged to `{{branch}}`")
+	tpl, err := pullRequestMergedTpl.Parse("*{{.Repo}}:* PR \"{{.PrTitle}} ({{.PrNumber}})\" merged to `{{.BranchRef}}`")
+	if err != nil {
+		panic(err)
+	}
+
+	tpl2, err := pullRequestMergedTpl.Parse("*CI: {{.Repo}}:* PR \"{{.PrTitle}} ({{.PrNumber}})\" merged to `{{.BranchRef}}`")
+	if err != nil {
+		panic(err)
+	}
 
 	notifierService := service.New(service.Config{
 		Cvs: service.Cvs{
@@ -36,6 +44,17 @@ func main() {
 						"pull_request_merged": {
 							Message: tpl,
 						},
+					},
+					CircleCi: map[string]map[string]service.SendPack{
+						"pull_request_merged": {
+							"success": {
+								Message: tpl2,
+							},
+						},
+						"fetch_failed":  {},
+						"search_failed": {},
+						"build_failed":  {},
+						"wait_failed":   {},
 					},
 				},
 			},

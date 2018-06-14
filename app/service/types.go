@@ -39,9 +39,11 @@ type Cvs struct {
 }
 
 type Systems struct {
-	Github map[string]SendPack
+	Github   map[string]SendPack
+	CircleCi map[string]map[string]SendPack
 }
 
 type SendPack struct {
 	Message *template.Template
+	Slack   Slack
 }
