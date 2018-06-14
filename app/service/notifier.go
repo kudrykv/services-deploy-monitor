@@ -26,7 +26,7 @@ func (s *notifier) Do(ctx context.Context, notification Event) {
 			systems := findSystems(s.cfg.Cvs, notification.BranchRef, notification.Tag)
 
 			if systems == nil {
-				logging.WithFields(logrus.Fields{"notification": notification}).Info("skip systems")
+				logging.WithFields(logrus.Fields{"notification": notification}).Info("skip systems github")
 				return
 			}
 
@@ -43,13 +43,11 @@ func (s *notifier) Do(ctx context.Context, notification Event) {
 				return
 			}
 
-			fmt.Println("source-github-send", buff.String())
-
 		case sourceCircleCi:
 			systems := findSystems(s.cfg.Cvs, notification.BranchRef, notification.Tag)
 
 			if systems == nil {
-				logging.WithFields(logrus.Fields{"notification": notification}).Info("skip systems")
+				logging.WithFields(logrus.Fields{"notification": notification}).Info("skip systems circleci")
 				return
 			}
 
@@ -70,8 +68,6 @@ func (s *notifier) Do(ctx context.Context, notification Event) {
 				logging.WithFields(logrus.Fields{"notification": notification, "err": err}).Error("execute")
 				return
 			}
-
-			fmt.Println("source-ci-send", buff.String())
 
 		default:
 			logging.WithFields(logrus.Fields{"notification": notification}).Error("unknown source")
