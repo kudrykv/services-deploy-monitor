@@ -23,7 +23,7 @@ func main() {
 	circleCiService := service.NewCircleCi(cfg.CircleCi.Key)
 	ciMonitorService := service.NewCiMonitor(cfg.Monitor, githubService, circleCiService)
 
-	notifierService := service.New(ParseConfig("./send-patterns.json"))
+	notifierService := service.New(ParseConfig("./send-patterns.json", ParseSlack("./slack-config.json")))
 
 	changelogHandler := handler.NewChangelog(changelogService)
 	githubWebhookHandler := handler.NewGithubWebhook(githubService, ciMonitorService, notifierService)

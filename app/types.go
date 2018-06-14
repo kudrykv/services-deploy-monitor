@@ -15,5 +15,10 @@ type JsonCvsItem struct {
 
 type JsonSystems struct {
 	Slack   string `json:"slack"`
+	Room    string `json:"room"`
 	Message string `json:"message"`
+}
+
+type JsonSlack struct {
+	Url string `json:"url"`
 }

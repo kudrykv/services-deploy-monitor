@@ -46,4 +46,5 @@ type Systems struct {
 type SendPack struct {
 	Message *template.Template
 	Slack   Slack
+	Room    string
 }

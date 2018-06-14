@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"github.com/kudrykv/services-deploy-monitor/app/service"
 	"io/ioutil"
 	"regexp"
 	"text/template"
 )
 
-func ParseConfig(ptf string) service.Config {
+func ParseConfig(ptf string, slacks map[string]service.Slack) service.Config {
 	bts, err := ioutil.ReadFile(ptf)
 	if err != nil {
 		panic(err)
@@ -41,8 +41,15 @@ func ParseConfig(ptf string) service.Config {
 				panic(err)
 			}
 
+			slack, ok := slacks[smth.Slack]
+			if !ok {
+				panic(errors.New("slack " + smth.Slack + " has not been found"))
+			}
+
 			ss.Github[event] = service.SendPack{
 				Message: parsed,
+				Room:    smth.Room,
+				Slack:   slack,
 			}
 		}
 
@@ -56,8 +63,15 @@ func ParseConfig(ptf string) service.Config {
 					panic(err)
 				}
 
+				slack, ok := slacks[smth.Slack]
+				if !ok {
+					panic(errors.New("slack " + smth.Slack + " has not been found"))
+				}
+
 				neededMap[status] = service.SendPack{
 					Message: parsed,
+					Room:    smth.Room,
+					Slack:   slack,
 				}
 			}
 
@@ -66,8 +80,6 @@ func ParseConfig(ptf string) service.Config {
 
 		config.Cvs.Branches[r] = ss
 	}
-
-	fmt.Println(config.Cvs.Branches)
 
 	return config
 }

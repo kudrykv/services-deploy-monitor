@@ -4,18 +4,17 @@
       "^master$": {
         "github": {
           "pull_request_merged": {
-            "slack": "",
+            "slack": "fubotv",
+            "room": "bot-test",
             "message": "*{{.Repo}}:* PR \"{{.PrTitle}} ({{.PrNumber}})\" merged to `{{.BranchRef}}`"
           }
         },
 
         "circle_ci": {
           "pull_request_merged": {
-            "fetch_failed": {},
-            "search_failed": {},
-            "build_failed": {},
-            "wait_failed": {},
             "success": {
+              "slack": "fubotv",
+              "room": "bot-test",
               "message": "`{{.Repo}}` PR #{{.PrNumber}} has been built successfully"
             }
           }
